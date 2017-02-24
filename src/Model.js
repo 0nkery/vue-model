@@ -1,4 +1,5 @@
 var _ = require('lodash');
+var axios = require('axios');
 var DataPipeline = require('./DataPipeline');
 var ModelErrors = require('./ModelErrors');
 
@@ -137,13 +138,13 @@ Model.prototype.act = function(name) {
             action: action
         });
         
-        return $.when();
+        return Promise.resolve();
     }
 
     if (_.isFunction(action.before)) {
         if(action.before.apply(self) === false) {
             self.emit(name + '.canceled');
-            return $.when();
+            return Promise.resolve();
         }
     }
 
@@ -164,65 +165,76 @@ Model.prototype.act = function(name) {
     var route = self.getRoute(action);
     var headers = self.getHeaders(action);
 
-    var promise = $.ajax(route, {
-        headers: headers,
-        type: action.method,
+    var promise = axios({
+        method: action.method,
+        url: route,
         data: sent,
+        headers: headers
     });
 
     // If we are to apply the result from the server,
     // chain onto the promise to do so
     if (action.apply) {
-        promise.done(function(data) {
+        promise.then(function(response) {
+            const { data } = response;
             api.apply(data);
         });
     }
 
     if (action.validation) {
         promise
-            .always(function() {
-                api.errors.clear();
-            })
+            .then(
+                function() {
+                    api.errors.clear();
+                },
 
-            .fail(function(xhr){
-                if (!self.settings.validationErrors.isValidationError(xhr)) {
-                    return;
-                }
+                function(response) {
+                    api.errors.clear();
 
-                var errors = self.settings.validationErrors.transformResponse(xhr);
-                api.errors.set(errors);
-            });
+                    if (!self.settings.validationErrors.isValidationError(response)) {
+                        return;
+                    }
+
+                    var errors = self.settings.validationErrors.transformResponse(xhr);
+                    api.errors.set(errors);
+                });
     }
 
     promise
-        .done(function(data) {
-            self.emit(name + '.success', {
-                sent: sent,
-                received: data
-            });
-            api.editing = false;
-        })
-
-        .fail(function(xhr) {
-            self.emit(name + '.error', {
-                sent: sent,
-                received: xhr
-            });
-        })
-
-        .always(function (data) {
-            self.emit(name + '.complete', {
-                sent: sent,
-                received: data
-            });
-
-            if(_.isFunction(action.after)) {
-                action.after.apply(self, [data]);
+        .then(
+            function(response) {
+                const { data } = response;
+                self.emit(name + '.success', {
+                    sent: sent,
+                    received: data
+                });
+                api.editing = false;
+            },
+            function(response) {
+                const { data } = response;
+                self.emit(name + '.error', {
+                    sent: sent,
+                    received: xhr
+                });
             }
+        )
 
-            api.inProgress = false;
-            api[name + 'InProgress'] = false;
-        });
+        .then(
+            function(response) {
+                const { data } = response;
+                self.emit(name + '.complete', {
+                    sent: sent,
+                    received: data
+                });
+
+                if(_.isFunction(action.after)) {
+                    action.after.apply(self, [data]);
+                }
+
+                api.inProgress = false;
+                api[name + 'InProgress'] = false;
+            }
+        );
 
     return promise;
 };
