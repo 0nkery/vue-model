@@ -166,10 +166,27 @@ Model.prototype.act = function(name) {
     var headers = self.getHeaders(action);
 
     var promise = axios({
-        method: action.method,
-        url: route,
-        data: sent,
-        headers: headers
+      method: action.method,
+      url: route,
+      data: sent,
+      headers: headers
+    })
+    .then(function ({response}) {
+      self.emit(name + '.success', {
+        sent: sent,
+        received: response.data
+      });
+      api.editing = false;
+
+      return response;
+    })
+    .catch(function ({response}) {
+      self.emit(name + '.error', {
+          sent: sent,
+          received: response.data
+      });
+
+      return response;
     });
 
     // If we are to apply the result from the server,
@@ -177,60 +194,38 @@ Model.prototype.act = function(name) {
     if (action.apply) {
         promise.then(function(response) {
             api.apply(response.data);
+            return response;
         });
     }
 
     if (action.validation) {
-        promise
-            .then(
-                function() {
-                    api.errors.clear();
-                },
+      promise.then(function(response) {
+        api.errors.clear();
 
-                function(response) {
-                    api.errors.clear();
+        if (!self.settings.validationErrors.isValidationError(response)) {
+            return;
+        }
 
-                    if (!self.settings.validationErrors.isValidationError(response)) {
-                        return;
-                    }
+        var errors = self.settings.validationErrors.transformResponse(response);
+        api.errors.set(errors);
 
-                    var errors = self.settings.validationErrors.transformResponse(xhr);
-                    api.errors.set(errors);
-                });
+        return response;
+      });
     }
 
-    promise
-        .then(
-            function(response) {
-                self.emit(name + '.success', {
-                    sent: sent,
-                    received: response.data
-                });
-                api.editing = false;
-            },
-            function(response) {
-                self.emit(name + '.error', {
-                    sent: sent,
-                    received: response.data
-                });
-            }
-        )
+    promise.then(function(response) {
+      self.emit(name + '.complete', {
+          sent: sent,
+          received: response.data
+      });
 
-        .then(
-            function(response) {
-                self.emit(name + '.complete', {
-                    sent: sent,
-                    received: response.data
-                });
+      if(_.isFunction(action.after)) {
+          action.after.apply(self, [response.data]);
+      }
 
-                if(_.isFunction(action.after)) {
-                    action.after.apply(self, [data]);
-                }
-
-                api.inProgress = false;
-                api[name + 'InProgress'] = false;
-            }
-        );
+      api.inProgress = false;
+      api[name + 'InProgress'] = false;
+    });
 
     return promise;
 };
