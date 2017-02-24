@@ -176,8 +176,7 @@ Model.prototype.act = function(name) {
     // chain onto the promise to do so
     if (action.apply) {
         promise.then(function(response) {
-            const { data } = response;
-            api.apply(data);
+            api.apply(response.data);
         });
     }
 
@@ -203,28 +202,25 @@ Model.prototype.act = function(name) {
     promise
         .then(
             function(response) {
-                const { data } = response;
                 self.emit(name + '.success', {
                     sent: sent,
-                    received: data
+                    received: response.data
                 });
                 api.editing = false;
             },
             function(response) {
-                const { data } = response;
                 self.emit(name + '.error', {
                     sent: sent,
-                    received: data
+                    received: response.data
                 });
             }
         )
 
         .then(
             function(response) {
-                const { data } = response;
                 self.emit(name + '.complete', {
                     sent: sent,
-                    received: data
+                    received: response.data
                 });
 
                 if(_.isFunction(action.after)) {
