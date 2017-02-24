@@ -214,7 +214,7 @@ Model.prototype.act = function(name) {
                 const { data } = response;
                 self.emit(name + '.error', {
                     sent: sent,
-                    received: xhr
+                    received: data
                 });
             }
         )
