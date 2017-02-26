@@ -171,7 +171,7 @@ Model.prototype.act = function(name) {
       data: sent,
       headers: headers
     })
-    .then(function ({response}) {
+    .then(function (response) {
       self.emit(name + '.success', {
         sent: sent,
         received: response.data
