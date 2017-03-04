@@ -220,7 +220,7 @@ Model.prototype.act = function(name) {
       });
 
       if(_.isFunction(action.after)) {
-          action.after.apply(self, [response.data]);
+          action.after.apply(self, [response]);
       }
 
       api.inProgress = false;
