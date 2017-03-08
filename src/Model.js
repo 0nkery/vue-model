@@ -180,13 +180,13 @@ Model.prototype.act = function(name) {
 
       return response;
     })
-    .catch(function ({response}) {
+    .catch(function (error) {
       self.emit(name + '.error', {
           sent: sent,
-          received: response.data
+          received: error.response.data
       });
 
-      return response;
+      return error.response;
     });
 
     // If we are to apply the result from the server,
