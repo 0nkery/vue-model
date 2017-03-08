@@ -172,11 +172,16 @@ Model.prototype.act = function(name) {
       headers: headers
     })
     .then(function (response) {
-      self.emit(name + '.success', {
-        sent: sent,
-        received: response.data
-      });
-      api.editing = false;
+      try {
+        self.emit(name + '.success', {
+          sent: sent,
+          received: response.data
+        });
+        api.editing = false;
+      }
+      catch (err) {
+        console.error(err);
+      }
 
       return response;
     })
